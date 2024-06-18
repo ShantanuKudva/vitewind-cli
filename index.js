@@ -9,17 +9,36 @@ import {
   multiselect,
   confirm,
 } from "@clack/prompts";
-import { execSync } from "child_process";
+import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import figlet from "figlet";
 import chalkAnimation from "chalk-animation";
 import chalk from "chalk";
 import * as emoji from "node-emoji";
+import process from "process";
+
+function setupGracefulExit() {
+  const gracefulExit = () => {
+    console.log(chalk.red("\nGracefully exiting..."));
+    process.exit(0);
+  };
+
+  process.on("SIGINT", gracefulExit); // Handle Ctrl+C
+  process.on("SIGTERM", gracefulExit); // Handle termination signals
+  process.on("uncaughtException", (err) => {
+    console.error("Uncaught Exception:", err);
+    gracefulExit();
+  });
+  process.on("unhandledRejection", (reason, promise) => {
+    console.error("Unhandled Rejection at:", promise, "reason:", reason);
+    gracefulExit();
+  });
+}
 
 function displayHeader() {
-  const animation = chalkAnimation.glitch(
-    figlet.textSync("ViteTail Starter", {
+  const animation = chalkAnimation.neon(
+    figlet.textSync(`ViteTail Starter`, {
       font: "Standard",
       horizontalLayout: "default",
       verticalLayout: "default",
@@ -55,7 +74,11 @@ async function main() {
     { value: "none", label: `${emoji.get("no_entry_sign")} None` },
   ];
 
-  intro(`${emoji.get("rocket")} Create a new Vite project with Tailwind CSS`);
+  intro(
+    `${emoji.get(
+      "rocket"
+    )} Create a new Vite project with Tailwind CSS ${emoji.emojify(":zap:")}`
+  );
 
   var projectName = await text({
     message: `${emoji.get("memo")} What is the name of your project?`,
@@ -66,16 +89,14 @@ async function main() {
     projectName = "my-vite-project";
   }
 
-  console.log(chalk.yellow(`Name: ${projectName}`));
-
-  const framework = await select({
+  var framework = await select({
     message: `${emoji.get("bulb")} Select a template`,
     options: frameworkOptions,
   });
 
-  const label = frameworkOptions.find((o) => o.value === framework).label;
+  var label = frameworkOptions.find((o) => o.value === framework).label;
   //   console.log(chalk.white(chalk.bgYellow(`("Framework:")) ${label}`
-  console.log();
+  // console.log(chalk.bgRedBright(chalk.white("Selected")), chalk.yellow(label));
 
   const needTypeScript = await confirm({
     message: `${emoji.get(
@@ -83,24 +104,148 @@ async function main() {
     )} Do you need TypeScript support for ${label}?`,
     initial: true, // Default to true (Yes)
   });
-  console.log(chalk.yellow(`TypeScript: ${needTypeScript}`));
+
+  if (needTypeScript) framework += "-ts";
+  var install_command = `npm create vite@latest ${projectName} -- --template ${framework}`;
+  console.log(install_command);
 
   const linter = await select({
     message: `${emoji.get("gear")} Select a linter`,
     options: linterOptions,
   });
 
-  var linterLabel = linterOptions.find((o) => o.value === linter).label;
-  console.log(chalk.yellow(`Linter: ${linterLabel}`));
-
   const needTailwind = await confirm({
     message: `${emoji.get("thought_balloon")} Do you need Tailwind CSS?`,
     initial: true, // Default to true (Yes)
   });
-  console.log(chalk.yellow(`Tailwind CSS: ${needTailwind}`));
 
-  // npm create vite@latest my-vue-app -- --template vue
-  // this is the command 
+  // after all the prompts, install the project
+  const spin = spinner();
+
+  const projectPath = path.join(process.cwd(), projectName);
+  if (fs.existsSync(projectPath)) {
+    const files = fs.readdirSync(projectPath);
+    if (files.length > 0) {
+      console.error(
+        `${emoji.get(
+          "warning"
+        )} Error: target directory ${projectName} is not empty.`
+      );
+      process.exit(1);
+    }
+  } else {
+    fs.mkdirSync(projectPath);
+  }
+
+  exec(install_command, { cwd: process.cwd() }, (error, stdout, stderr) => {
+    spin.start(
+      chalk.bgYellow(
+        `${emoji.get(
+          "hammer_and_wrench"
+        )} Building your preferred template of Vite app`
+      )
+    );
+    console.log(chalk.blueBright(install_command));
+    if (error) {
+      spin.stop(`${emoji.get("x")} Failed to create the project.`);
+      console.error(chalk.red(stderr));
+      process.exit(1);
+    } else {
+      console.log(chalk.gray(stdout));
+      process.chdir(projectPath);
+      exec("npm install", (error, stdout, stderr) => {
+        spin.start(
+          chalk.bgYellow(
+            `${emoji.get("hammer_and_wrench")} Installing dependencies`
+          )
+        );
+        console.log(chalk.blueBright("npm install"));
+        if (error) {
+          spin.stop(`${emoji.get("x")} Failed to install dependencies.`);
+          console.error(chalk.red(stderr));
+          process.exit(1);
+        } else {
+          console.log(chalk.gray(stdout));
+          const linterCommand = linter === "none" ? "" : `npx ${linter} --init`;
+
+          //! eslint-config-standard
+          //! 1npm init @eslint/config@latest -- --config eslint-config-standard
+
+          //for prettier
+          // npm install --save-dev --save-exact prettier
+          // Then, create an empty config file to let editors and other tools know you are using Prettier:
+          // node --eval "fs.writeFileSync('.prettierrc','{}\n')"
+
+          // complete the linter setup
+          // if (linter !== "none") {
+          //   exec(linterCommand, (error, stdout, stderr) => {
+          //     if (error) {
+          //       spin.stop(`${emoji.get("x")} Failed to initialize linter.`);
+          //       console.error(chalk.red(stderr));
+          //       process.exit(1);
+          //     } else {
+          //       console.log(chalk.gray(stdout));
+          //       spin.stop(
+          //         chalk.bgGreenBright(
+          //           chalk.bgGreenBright("Project created successfully! 🚀")
+          //         )
+          //       );
+          //       process.exit(0);
+          //     }
+          //   });
+          // }
+
+          if (!needTailwind) {
+            spin.stop(
+              chalk.bgGreenBright(
+                chalk.bgGreenBright("Project created successfully! 🚀")
+              )
+            );
+            process.exit(0);
+          } else {
+            exec(
+              "npm install -D tailwindcss@latest postcss@latest autoprefixer@latest",
+              (error, stdout, stderr) => {
+                spin.start(
+                  chalk.bgYellow(
+                    `${emoji.get("hammer_and_wrench")} Installing Tailwind CSS`
+                  )
+                );
+                console.log(
+                  chalk.blueBright(
+                    "npm install -D tailwindcss postcss autoprefixer"
+                  )
+                );
+                if (error) {
+                  spin.stop(
+                    `${emoji.get("x")} Failed to install Tailwind CSS.`
+                  );
+                  console.error(chalk.red(stderr));
+                  process.exit(1);
+                } else {
+                  console.log(chalk.gray(stdout));
+                }
+              }
+            );
+          }
+        }
+      });
+    }
+  });
+
+  // setTimeout(() => {
+  //   spin.stop(
+  //     chalk.bgGreenBright(chalk.blackBright("Project created successfully! 🚀"))
+  //   );
+  // }, 2000);
+  // console.log(
+  //   chalk.bgRedBright(chalk.white("  Selected  ")),
+  //   chalk.yellow(`Tailwind CSS: ${needTailwind}`)
+  // );
+
+  // npm create vite@latest my-vue-app -- --template vue --typescript
+  // npm create vite@latest my-react-app -- --template react-ts
+  // this is the command
 }
 
 displayHeader();

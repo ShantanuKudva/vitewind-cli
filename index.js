@@ -98,6 +98,9 @@ async function main() {
     initial: true, // Default to true (Yes)
   });
   console.log(chalk.yellow(`Tailwind CSS: ${needTailwind}`));
+
+  // npm create vite@latest my-vue-app -- --template vue
+  // this is the command 
 }
 
 displayHeader();

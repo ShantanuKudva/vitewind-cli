@@ -82,21 +82,61 @@ module.exports = {
 @tailwind components;
 @tailwind utilities;
           `;
-              fs.writeFileSync(
-                path.join(projectPath, "src", "style.css"),
-                tailwindCSS
-              );
+              // fs.writeFileSync(
+              //   path.join(projectPath, "src", "style.css"),
+              //   tailwindCSS
+              // );
 
-              const mainFile = `main.${framework.includes("ts") ? "ts" : "js"}`;
-              const mainFilePath = path.join(projectPath, "src", mainFile);
+              // const mainFile = `main.${framework.includes("ts") ? "ts" : "js"}`;
+              // const mainFilePath = path.join(projectPath, "src", mainFile);
 
-              if (fs.existsSync(mainFilePath)) {
-                let mainJS = fs.readFileSync(mainFilePath, "utf8");
-                mainJS = mainJS.replace(
-                  /import ['"].\/style.css['"];/,
-                  `import './style.css';`
+              // if (fs.existsSync(mainFilePath)) {
+              //   let mainJS = fs.readFileSync(mainFilePath, "utf8");
+              //   mainJS = mainJS.replace(
+              //     /import ['"].\/style.css['"];/,
+              //     `import './style.css';`
+              //   );
+              //   fs.writeFileSync(mainFilePath, mainJS);
+              // }
+
+              if (fs.existsSync(path.join(projectPath, "src"))) {
+                fs.writeFileSync(
+                  path.join(projectPath, "src", "style.css"),
+                  tailwindCSS
                 );
-                fs.writeFileSync(mainFilePath, mainJS);
+
+                const mainFile = `main.${
+                  framework.includes("ts") ? "ts" : "js"
+                }`;
+                const mainFilePath = path.join(projectPath, "src", mainFile);
+
+                if (fs.existsSync(mainFilePath)) {
+                  let mainJS = fs.readFileSync(mainFilePath, "utf8");
+                  mainJS = mainJS.replace(
+                    /import ['"].\/style.css['"];/,
+                    `import './style.css';`
+                  );
+                  fs.writeFileSync(mainFilePath, mainJS);
+                }
+              } else {
+                fs.writeFileSync(
+                  path.join(projectPath, "style.css"),
+                  tailwindCSS
+                );
+
+                const mainFile = `main.${
+                  framework.includes("ts") ? "ts" : "js"
+                }`;
+                const mainFilePath = path.join(projectPath, mainFile);
+
+                if (fs.existsSync(mainFilePath)) {
+                  let mainJS = fs.readFileSync(mainFilePath, "utf8");
+                  mainJS = mainJS.replace(
+                    /import ['"].\/style.css['"];/,
+                    `import './style.css';`
+                  );
+                  fs.writeFileSync(mainFilePath, mainJS);
+                }
               }
 
               console.log(
@@ -311,11 +351,86 @@ document.addEventListener('DOMContentLoaded', () => {
     fs.writeFileSync(path.join(projectPath, "index.html"), htmlCode);
     fs.writeFileSync(path.join(projectPath, `main.${jsExtension}`), jsCode);
   },
+
+  vanillaTs: (projectPath, projectName) => {
+    const htmlCode = `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Vite + TS</title>
+      </head>
+      <body
+        class="bg-gray-200 min-h-screen flex flex-col justify-center items-center"
+      >
+        <div id="app"></div>
+        <footer class="absolute bottom-0 mb-4">
+          <a
+            href="https://github.com/ShantanuKudva/ShantanuKudva"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-blue-500 hover:underline"
+            >GitHub</a
+          >
+        </footer>
+        <script type="module" src="/src/main.ts"></script>
+      </body>
+    </html>
+    
+`;
+
+    const tsCode = `
+import './style.css'
+import typescriptLogo from './typescript.svg'
+import viteLogo from '/vite.svg'
+import { setupCounter } from './counter'
+
+document.querySelector<HTMLDivElement>('#app')!.innerHTML = \`
+  <div class="text-center">
+    <a href="https://vitejs.dev" target="_blank">
+      <img src="\${viteLogo}" class="logo" alt="Vite logo" />
+    </a>
+    <a href="https://www.typescriptlang.org/" target="_blank">
+      <img src="\${typescriptLogo}" class="logo vanilla" alt="TypeScript logo" />
+    </a>
+    <h1 class="text-3xl font-bold mb-4">Vite + TypeScript</h1>
+    <div class="card">
+      <button id="counter" type="button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4"></button>
+    </div>
+    <p class="read-the-docs">
+      Click on the Vite and TypeScript logos to learn more
+    </p>
+  </div>
+\`
+
+setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+`;
+
+    const counterCode = `
+export function setupCounter(element: HTMLButtonElement) {
+  let counter = 0
+  const setCounter = (count: number) => {
+    counter = count
+    element.innerHTML = \`Count: \${counter}\`
+  }
+  element.addEventListener('click', () => setCounter(counter + 1))
+  setCounter(0)
+}
+`;
+
+    fs.writeFileSync(path.join(projectPath, "index.html"), htmlCode);
+    fs.writeFileSync(path.join(projectPath, "src", "main.ts"), tsCode);
+    fs.writeFileSync(path.join(projectPath, "src", "counter.ts"), counterCode);
+  },
 };
+
 function addStubCode(projectPath, framework, projectName) {
   const isTs = framework.endsWith("-ts");
-  const baseFramework = isTs ? framework.slice(0, -3) : framework;
+  var baseFramework = isTs ? framework.slice(0, -3) : framework;
   // console.log("🚀 ~ addStubCode ~ baseFramework:", baseFramework);
+  if (baseFramework === "vanilla" && isTs) baseFramework = "vanillaTs";
 
   if (stubFunctions[baseFramework]) {
     stubFunctions[baseFramework](projectPath, projectName, isTs);
